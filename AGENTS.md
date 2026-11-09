@@ -44,7 +44,39 @@ present). ClassRelay deliberately keeps its own name, identity and design.
   `useDictation` (reusable mic for any text field).
 - `server/` — `index.js` (local listener), `app.js` (the Express app, shared with the
   serverless entry point), `lib/tasks.js` (personalities + prompt/task logic).
-- `api/index.js` — Vercel serverless entry that re-exports the Express app.
+- `api/index.js` — Vercel serverless entry that re-exports the Express app, wrapped in a
+  rewrite that carries the real path in `__p` (see the deployment gotcha below).
+
+## Deployment (Vercel)
+
+- `vercel.json` sets `framework: null`, `buildCommand: npm run build`,
+  `outputDirectory: dist`, and two rewrites: `/api/(.*)` → `/api?__p=$1` (carrying the
+  real path), then everything else that is not `/api` → `/index.html` (SPA fallback).
+- **Gotcha — `/api/*` routing**: Vercel's plain-function router does **not** treat a
+  bracket catch-all `api/[...path].js` as multi-segment. Only one-segment paths such as
+  `/api/health` reached Express; every nested path (`/api/peer/rooms`) was answered by the
+  platform with its own 404 (`x-vercel-error: NOT_FOUND`) and never invoked the function.
+  The symptom is PeerRelay failing on the deployed site only, while working locally. The
+  fix is a single `api/index.js` plus the explicit `__p` rewrite. If you add new nested
+  `/api/...` routes, test them against the deployed URL, not just `localhost`.
+- **Gotcha — stale deploys are invisible**: the client bundle and the API can come from
+  different builds. `/api/health` reports `commit` (the `VERCEL_GIT_COMMIT_SHA`) so you can
+  confirm which revision is actually serving traffic.
+- **Peer rooms are in-memory**: fine for a demo, but on serverless they are per-instance,
+  so a room can 404 if the read lands on a different instance. Verified 0/25 misses in
+  practice; note the limitation rather than claiming durability.
+- `.env.local` is loaded by `server/app.js` (after `.env`, and it wins). On Vercel there is
+  no env file: set `GROQ_API_KEY` (etc.) in Project → Settings → Environment Variables.
+  With no key the site runs in demo mode, which is fully functional and labelled.
+
+## Groq
+
+- Default model is `openai/gpt-oss-120b`. `llama-3.3-70b-versatile` is retired (404).
+- Groq's reasoning models (gpt-oss, qwen3) spend part of the token budget thinking, which
+  showed up as empty replies and rate limits. `resolveProvider` sends `reasoning_effort`
+  ("low") for those models only; non-reasoning models reject the parameter. Override with
+  `GROQ_REASONING_EFFORT=low|medium|high|off`.
+- `complete()` retries a 429 once after a short wait before falling back to the demo engine.
 
 ## Voice
 
