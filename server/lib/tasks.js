@@ -197,14 +197,15 @@ ${answer || '(no answer)'}`
 }`;
 
   // The class should react promptly; if the model is slow, fall back to the instant demo
-  // engine rather than making the room sit in silence.
+  // engine rather than making the room sit in silence. The budget is provider-tunable
+  // (CLASS_TURN_TIMEOUT_MS) so a slower model can be given more room.
   const text = await complete(provider, {
     system,
     prompt,
     temperature: 0.8,
     maxTokens: 600,
     signal: ctx.signal,
-    timeoutMs: 9_000,
+    timeoutMs: provider.classTurnTimeoutMs || 12_000,
   });
   const out = parseJson(text);
   const byId = new Map();

@@ -54,6 +54,11 @@ export function resolveProvider(env = process.env) {
   const managed = managedConfig(env);
   const wants = (name) => forced === '' || forced === name;
 
+  // How long the class may take to raise a hand before the demo engine steps in. Hosted
+  // Groq endpoints usually answer well inside this; a slower self-hosted or reasoning model
+  // can be given more room with CLASS_TURN_TIMEOUT_MS.
+  const classTurnTimeoutMs = Math.max(2000, Number(env.CLASS_TURN_TIMEOUT_MS) || 12_000);
+
   // Groq is OpenAI-compatible: it has its own base URL and speaks chat completions.
   if (wants('groq') && (groqKey || forced === 'groq')) {
     if (!groqKey) return null;
@@ -64,6 +69,7 @@ export function resolveProvider(env = process.env) {
       managed: null,
       base: String(env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1').replace(/\/+$/, ''),
       model: String(env.GROQ_MODEL || 'llama-3.3-70b-versatile').trim(),
+      classTurnTimeoutMs,
       env,
     };
   }
@@ -77,13 +83,14 @@ export function resolveProvider(env = process.env) {
       managed: null,
       base: String(env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/+$/, ''),
       model: String(env.OPENAI_MODEL || 'gpt-4o-mini').trim(),
+      classTurnTimeoutMs,
       env,
     };
   }
 
   if (wants('gemini') && (geminiKey || forced === 'gemini')) {
     if (!geminiKey) return null;
-    return { kind: 'gemini', key: geminiKey, env };
+    return { kind: 'gemini', key: geminiKey, classTurnTimeoutMs, env };
   }
 
   // No explicit key: fall back to the workspace's managed gateway, which issues a
@@ -99,6 +106,7 @@ export function resolveProvider(env = process.env) {
       // The workspace gateway runs a reasoning model; the classroom needs a fast first
       // reply, so reasoning is dialled down here (see OPENAI_REASONING_EFFORT to override).
       reasoningEffort: String(env.OPENAI_REASONING_EFFORT || 'minimal').trim(),
+      classTurnTimeoutMs,
       env,
     };
   }
