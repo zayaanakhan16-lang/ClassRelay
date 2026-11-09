@@ -1,0 +1,191 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --board: #213b33;
+    --paper: #f6f1e6;
+    --pencil: #f2b33d;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-paper font-sans text-ink antialiased;
+    /* A soft warm glow at the top-left, like light falling across a desk. */
+    background-image: radial-gradient(ellipse 80% 50% at 15% 0%, #fbf7ee 0%, transparent 70%);
+    background-attachment: fixed;
+    font-feature-settings: 'kern', 'liga';
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-display;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+  }
+
+  ::selection {
+    background: rgba(242, 179, 61, 0.35);
+    color: #1e1b16;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--pencil);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(30, 27, 22, 0.22) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: rgba(30, 27, 22, 0.2);
+    border-radius: 999px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: rgba(30, 27, 22, 0.34);
+  }
+}
+
+@layer components {
+  /* Surfaces */
+  .surface {
+    @apply rounded-xl border border-line bg-surface shadow-card;
+  }
+  .surface-raised {
+    @apply rounded-xl border border-line bg-surface shadow-lift;
+  }
+  .surface-ivory {
+    @apply rounded-xl border border-line bg-surface text-ink shadow-card;
+  }
+  .surface-board {
+    @apply rounded-xl border border-white/10 bg-board text-chalk shadow-board;
+  }
+
+  /* The chalkboard texture, used behind the classroom and the landing hero. */
+  .chalkboard {
+    background-color: #1b332c;
+    background-image:
+      radial-gradient(circle at 18% 22%, rgba(242, 179, 61, 0.08), transparent 42%),
+      radial-gradient(circle at 82% 8%, rgba(79, 127, 232, 0.08), transparent 46%),
+      radial-gradient(circle at 60% 88%, rgba(31, 158, 119, 0.08), transparent 44%),
+      repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 3px);
+  }
+
+  /* Buttons */
+  .btn {
+    @apply inline-flex min-h-[44px] select-none items-center justify-center gap-2 rounded-full border-2 border-transparent px-5 py-2.5 text-sm font-bold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-45;
+  }
+  .btn-primary {
+    @apply btn bg-pencil text-ink hover:bg-pencil-soft active:translate-y-px;
+  }
+  .btn-secondary {
+    @apply btn border-line bg-surface text-ink hover:border-pencil-deep hover:bg-pencil-wash;
+  }
+  .btn-quiet {
+    @apply btn border-line bg-transparent text-ink hover:bg-paper-2;
+  }
+  .btn-ghost {
+    @apply btn text-ink-soft hover:bg-paper-2 hover:text-ink;
+  }
+  .btn-danger {
+    @apply btn border-wrong bg-wrong/10 text-wrong hover:bg-wrong/20;
+  }
+  .btn-study {
+    @apply btn border-pencil bg-pencil-wash text-ink hover:bg-pencil/30;
+  }
+  .btn-sm {
+    @apply min-h-0 px-3.5 py-1.5 text-xs;
+  }
+
+  /* Form fields */
+  .field {
+    @apply w-full rounded-lg border-2 border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder:text-muted/60 transition focus:border-pencil focus:outline-none;
+  }
+  .field-ivory {
+    @apply field;
+  }
+  .label {
+    @apply mb-1.5 block text-xs font-bold uppercase tracking-[0.13em] text-muted;
+  }
+
+  /* Chips and tags */
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border-2 border-line bg-surface px-2.5 py-1 text-2xs font-bold uppercase tracking-[0.1em] text-muted;
+  }
+  .chip-pencil {
+    @apply chip border-pencil bg-pencil-wash text-pencil-deep;
+  }
+  .chip-right {
+    @apply chip border-right bg-right/10 text-right;
+  }
+  .chip-wrong {
+    @apply chip border-wrong bg-wrong/10 text-wrong;
+  }
+  .chip-board {
+    @apply chip border-board bg-board-wash text-board;
+  }
+
+  /* Typography */
+  .display {
+    @apply font-display font-extrabold tracking-[-0.02em];
+  }
+  .eyebrow {
+    @apply text-2xs font-bold uppercase tracking-[0.22em] text-pencil-deep;
+  }
+  .prose-lesson {
+    @apply whitespace-pre-line text-[0.95rem] leading-relaxed;
+  }
+
+  /* A hand-drawn underline, used to mark a concept on the page. */
+  .scribble-underline {
+    background-image: linear-gradient(transparent 62%, rgba(242, 179, 61, 0.45) 62%, rgba(242, 179, 61, 0.45) 90%, transparent 90%);
+  }
+
+  .card-grid-lines {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .text-pretty {
+    text-wrap: pretty;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Respect a reduced-motion preference everywhere. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
