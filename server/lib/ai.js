@@ -63,6 +63,7 @@ export function resolveProvider(env = process.env) {
   if (wants('groq') && (groqKey || forced === 'groq')) {
     if (!groqKey) return null;
     return {
+      name: 'groq',
       kind: 'openai',
       style: style || 'chat',
       key: groqKey,
@@ -77,6 +78,7 @@ export function resolveProvider(env = process.env) {
   if (wants('openai') && (openaiKey || forced === 'openai')) {
     if (!openaiKey) return null;
     return {
+      name: 'openai',
       kind: 'openai',
       style: style || 'chat',
       key: openaiKey,
@@ -90,13 +92,14 @@ export function resolveProvider(env = process.env) {
 
   if (wants('gemini') && (geminiKey || forced === 'gemini')) {
     if (!geminiKey) return null;
-    return { kind: 'gemini', key: geminiKey, classTurnTimeoutMs, env };
+    return { name: 'gemini', kind: 'gemini', key: geminiKey, classTurnTimeoutMs, env };
   }
 
   // No explicit key: fall back to the workspace's managed gateway, which issues a
   // short-lived key on demand. That gateway only accepts the completions style.
   if (wants('openai') && managed) {
     return {
+      name: 'openai',
       kind: 'openai',
       style: style || 'completions',
       key: '',

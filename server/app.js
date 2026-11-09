@@ -66,7 +66,9 @@ app.get('/api/health', (_req, res) => {
   res.json({
     ok: true,
     mode: provider ? 'live' : 'demo',
-    provider: provider ? provider.kind : null,
+    // The configured provider by name (groq | openai | gemini). Groq speaks the OpenAI
+    // protocol, so reporting the protocol instead would be misleading here.
+    provider: provider ? provider.name || provider.kind : null,
     // Never expose the key itself, only whether one is configured.
     hasKey: Boolean(provider),
   });

@@ -20,7 +20,7 @@ const HOST = String(process.env.API_HOST || '127.0.0.1').trim() || '127.0.0.1';
 app.listen(PORT, HOST, () => {
   console.log(`\n  ClassRelay API listening on http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
   if (provider) {
-    console.log(`  Mode: live AI (${provider.kind})`);
+    console.log(`  Mode: live AI (${provider.name || provider.kind})`);
   } else {
     console.log('  Mode: DEMO — no AI key found, using the built-in simulation.');
     console.log('  Add GROQ_API_KEY, OPENAI_API_KEY or GEMINI_API_KEY to .env to enable live AI.\n');
