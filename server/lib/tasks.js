@@ -14,7 +14,7 @@
  */
 
 import { AiError, complete, parseJson } from './ai.js';
-import { CLASSMATES, CLASSMATE_IDS, classmateName, personaBlock, SAFETY } from './classmates.js';
+import { CLASSMATES, CLASSMATE_IDS, classmateName, personaBlock, SAFETY, VOICE_STYLE_BLOCK } from './classmates.js';
 import {
   arr,
   fitPerSlide,
@@ -122,6 +122,8 @@ How the students behave:
 - They remember everything the presenter said in this class, including answers given to other students.
 - Questions target real gaps: skipped steps, undefined terms, claims with no reason, missing "why", things that contradict the slide, edge cases, missing examples, and connections not made.
 - Write like real teenagers: one or two short sentences each, no emojis.
+- These questions are read ALOUD to the class, so write the way a student actually speaks: contractions ("what's", "doesn't") and plain spoken phrasing instead of essay wording. Keep it short enough to say in one breath.
+${VOICE_STYLE_BLOCK}
 - The class gets harder as the discussion goes on. Label every question with "difficulty":
   - "warmup" — early and gentle: check a basic fact or a definition the presenter just gave. Use this first, before anything else.
   - "core" — the middle of the lesson: ask the presenter to explain WHY, to justify a step, or to connect two ideas.
@@ -149,8 +151,8 @@ ${readAloud ? '- IMPORTANT: the presenter mostly read the slide out loud word fo
 ${lastRound ? '- This is the last round on this slide: nobody asks a NEW question.' : '- At most one student who had no question may raise a hand with a new question, and only if the answer raised something important or was wrong.'}`
 }
 
-Return JSON only, with one entry for each of the four students, plus "fixed" (ids of wrong ideas corrected this turn, often empty):
-{"students":[{"id":"mika","mood":"confused","handUp":true,"say":"...","difficulty":"warmup","misconception":"","corrected":false}],"fixed":[]}`;
+Return JSON only. Include an entry ONLY for the students who raise a hand, plus any student holding a misconception; omit everyone else. Always include "fixed" (ids of wrong ideas corrected this turn, often empty):
+{"students":[{"id":"mika","mood":"confused","say":"...","difficulty":"warmup"}],"fixed":[]}`;
 
   const otherSlides = arr(p.lesson?.slides)
     .filter((s) => int(s.n) !== slideIndex + 1)
@@ -194,7 +196,16 @@ ${answer || '(no answer)'}`
     : ''
 }`;
 
-  const text = await complete(provider, { system, prompt, temperature: 0.8, maxTokens: 900, signal: ctx.signal });
+  // The class should react promptly; if the model is slow, fall back to the instant demo
+  // engine rather than making the room sit in silence.
+  const text = await complete(provider, {
+    system,
+    prompt,
+    temperature: 0.8,
+    maxTokens: 600,
+    signal: ctx.signal,
+    timeoutMs: 9_000,
+  });
   const out = parseJson(text);
   const byId = new Map();
   for (const st of arr(out.students)) if (CLASSMATES[st?.id] && !byId.has(st.id)) byId.set(st.id, st);
@@ -205,7 +216,8 @@ ${answer || '(no answer)'}`
   for (const id of CLASSMATE_IDS) {
     const st = byId.get(id) || {};
     const say = str(st.say, 400).trim();
-    let handUp = Boolean(st.handUp) && Boolean(say || wasOpen.has(id));
+    // The model may list only the students who speak; an entry with a line means a raised hand.
+    let handUp = st.handUp === undefined ? Boolean(say) : Boolean(st.handUp);
     if (handUp && !wasOpen.has(id) && round > 0 && (lastRound || newHands++ >= 1)) handUp = false;
     students.push({
       id,

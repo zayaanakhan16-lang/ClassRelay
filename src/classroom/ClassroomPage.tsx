@@ -318,7 +318,19 @@ export function ClassroomPage() {
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2 border-t border-line/10 pt-4">
-                  <button type="button" className="btn-secondary btn-sm" onClick={nextSlide} disabled={!canAdvance && !isLast}>
+                  <button
+                    type="button"
+                    className="btn-secondary btn-sm"
+                    onClick={nextSlide}
+                    disabled={!canAdvance && !isLast}
+                    title={
+                      canAdvance || isLast
+                        ? undefined
+                        : hands.length
+                          ? 'Answer the raised question first — or use “Skip this slide” to move on.'
+                          : 'Explain this slide before moving on — or use “Skip this slide”.'
+                    }
+                  >
                     <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
                     {isLast ? 'Finish and take the class quiz' : 'Next slide'}
                   </button>

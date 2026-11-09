@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, BookOpen, Check, Keyboard, Mic, MicOff, Send, Square, X } from 'lucide-react';
-import { Dictation, speechSupported } from '@/services/speech';
-import { ErrorNote, Spinner, ThinkingDots } from '@/components/ui';
+import { AlertTriangle, BookOpen, Check, Keyboard, Send, X } from 'lucide-react';
+import { speechSupported } from '@/services/speech';
+import { useDictation } from '@/hooks/useDictation';
+import { ErrorNote, MicButton, MicLevelMeter, Spinner, ThinkingDots } from '@/components/ui';
 import type { StudyCard } from '@/types';
 import { cn, wordCount } from '@/lib/utils';
 
@@ -37,34 +37,8 @@ export function TranscriptPanel({
   studySlot?: React.ReactNode;
   className?: string;
 }) {
-  const [listening, setListening] = useState(false);
-  const [voiceError, setVoiceError] = useState<string | null>(null);
-  const dictation = useRef<Dictation | null>(null);
-  const valueRef = useRef(value);
-  valueRef.current = value;
-
-  useEffect(() => {
-    return () => dictation.current?.stop();
-  }, []);
-
-  const toggleMic = () => {
-    setVoiceError(null);
-    if (listening) {
-      dictation.current?.stop();
-      setListening(false);
-      return;
-    }
-    const d = new Dictation({
-      onText: (text) => onChange(text),
-      onState: (state) => setListening(state),
-      onError: (message) => {
-        setVoiceError(message);
-        setListening(false);
-      },
-    });
-    dictation.current = d;
-    d.start(valueRef.current);
-  };
+  const dictation = useDictation();
+  const { listening, level, activity } = dictation;
 
   const words = wordCount(value);
   const canSubmit = words >= 3 && !busy && !disabled;
@@ -75,35 +49,13 @@ export function TranscriptPanel({
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={toggleMic}
-            disabled={!speechSupported || disabled}
-            aria-pressed={listening}
-            className={cn(
-              'inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] transition',
-              listening
-                ? 'border-wrong/60 bg-wrong/18 text-wrong'
-                : 'border-line/18 bg-surface/[0.06] text-ink-soft hover:border-line/35 hover:text-ink',
-              (!speechSupported || disabled) && 'cursor-not-allowed opacity-45',
-            )}
-            title={speechSupported ? 'Start or stop voice input' : 'Voice input is not supported in this browser'}
-          >
-            {listening ? (
-              <>
-                <span className="relative flex h-3 w-3 items-center justify-center" aria-hidden="true">
-                  <span className="absolute h-3 w-3 animate-pulse-ring rounded-full bg-wrong" />
-                  <Square className="h-2.5 w-2.5 fill-current" />
-                </span>
-                Stop
-              </>
-            ) : (
-              <>
-                {speechSupported ? <Mic className="h-3.5 w-3.5" aria-hidden="true" /> : <MicOff className="h-3.5 w-3.5" aria-hidden="true" />}
-                Speak
-              </>
-            )}
-          </button>
+          <MicButton
+            supported={speechSupported}
+            listening={listening}
+            level={level}
+            onClick={() => dictation.toggle(value, onChange)}
+            disabled={disabled}
+          />
           <span className="text-2xs uppercase tracking-[0.1em] text-muted">
             {words} word{words === 1 ? '' : 's'}
           </span>
@@ -117,17 +69,19 @@ export function TranscriptPanel({
       </div>
 
       {listening && (
-        <p className="flex items-center gap-2 text-xs text-wrong">
-          <span className="inline-flex gap-1" aria-hidden="true">
-            {[0, 1, 2].map((i) => (
-              <span key={i} className="h-1.5 w-1.5 animate-dots-bounce rounded-full bg-wrong" style={{ animationDelay: `${i * 0.14}s` }} />
-            ))}
+        <div className="flex items-center gap-3 rounded-xl border border-wrong/30 bg-wrong/[0.06] px-3.5 py-2.5 text-xs text-wrong">
+          <MicLevelMeter level={level} listening={listening} />
+          <span>
+            {activity.speech
+              ? 'Listening — the microphone can hear you. Speak naturally; the transcript is editable below.'
+              : activity.audio
+                ? 'Listening — the microphone is open but has not picked up speech yet. Try speaking a little louder or closer.'
+                : 'Starting the microphone… if this stays put, press Speak again or type instead.'}
           </span>
-          Listening… speak naturally. The transcript is editable below.
-        </p>
+        </div>
       )}
 
-      {voiceError && <ErrorNote>{voiceError}</ErrorNote>}
+      {dictation.error && <ErrorNote>{dictation.error}</ErrorNote>}
       {readingNow && (
         <div className="flex items-start gap-2.5 rounded-xl border border-pencil/35 bg-pencil/[0.09] px-3.5 py-2.5 text-sm text-ink">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-pencil-deep" aria-hidden="true" />

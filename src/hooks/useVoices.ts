@@ -1,19 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ClassmateId } from '@/types';
 import { CLASSMATE_IDS } from '@/data/classmates';
-import { VOICE_STYLE, assignVoices, onVoicesReady, speak, stopSpeaking, voiceSupported } from '@/services/voice';
+import { VOICE_STYLE, assignVoices, speak, stopSpeaking, unlockSpeech, voiceSupported, waitForVoices } from '@/services/voice';
 
 const STORAGE_KEY = 'classrelay.voice';
 
 /**
  * Owns spoken classmates: which voice each one uses, whether sound is on, and who is
- * speaking right now. Sound is off until the student turns it on, so nothing surprises them
- * and autoplay rules never bite — the toggle is a real user gesture.
+ * speaking right now.
+ *
+ * Sound is off until the student turns it on, so nothing surprises them and autoplay rules
+ * never bite. Turning it on is a real user gesture, which also *unlocks* the speech engine
+ * (Chrome refuses to speak before an interaction) — that is why the first question is
+ * actually heard rather than silently dropped.
  */
 export function useVoices() {
   const voiceMap = useRef<Partial<Record<ClassmateId, SpeechSynthesisVoice>>>({});
   const [voicesReady, setVoicesReady] = useState(false);
-  const [enabled, setEnabled] = useState(() => {
+  const [enabled, setEnabledState] = useState(() => {
     if (!voiceSupported) return false;
     try {
       return localStorage.getItem(STORAGE_KEY) === 'on';
@@ -26,18 +30,44 @@ export function useVoices() {
 
   useEffect(() => {
     if (!voiceSupported) return;
-    return onVoicesReady((voices) => {
+    let alive = true;
+    void waitForVoices().then((voices) => {
+      if (!alive) return;
       voiceMap.current = assignVoices(voices, CLASSMATE_IDS);
       setVoicesReady(voices.length > 0);
     });
+    return () => {
+      alive = false;
+    };
   }, []);
 
-  useEffect(() => {
+  const setEnabled = useCallback((next: boolean) => {
+    setError(null);
+    if (next) {
+      // A click, so the engine will now allow speech.
+      unlockSpeech();
+      // Voices may not have arrived on first load; grab them now that we need them.
+      if (!voicesReady) {
+        void waitForVoices().then((voices) => {
+          if (voices.length) {
+            voiceMap.current = assignVoices(voices, CLASSMATE_IDS);
+            setVoicesReady(true);
+          }
+        });
+      }
+    } else {
+      stopSpeaking();
+      setVoiceSpeaking(null);
+    }
+    setEnabledState(next);
     try {
-      localStorage.setItem(STORAGE_KEY, enabled ? 'on' : 'off');
+      localStorage.setItem(STORAGE_KEY, next ? 'on' : 'off');
     } catch {
       /* storage may be blocked; the toggle still works for this session */
     }
+  }, [voicesReady]);
+
+  useEffect(() => {
     if (!enabled) {
       stopSpeaking();
       setVoiceSpeaking(null);
@@ -69,5 +99,15 @@ export function useVoices() {
     setVoiceSpeaking(null);
   }, []);
 
-  return { supported: voiceSupported, enabled, setEnabled, voicesReady, voiceSpeaking, say, stop, error, clearError: () => setError(null) };
+  return {
+    supported: voiceSupported,
+    enabled,
+    setEnabled,
+    voicesReady,
+    voiceSpeaking,
+    say,
+    stop,
+    error,
+    clearError: () => setError(null),
+  };
 }

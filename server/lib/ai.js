@@ -96,6 +96,9 @@ export function resolveProvider(env = process.env) {
       managed,
       base: String(env.OPENAI_BASE_URL || managed.baseUrl).replace(/\/+$/, ''),
       model: String(env.OPENAI_MODEL || 'deepseek-v4.1-flash').trim(),
+      // The workspace gateway runs a reasoning model; the classroom needs a fast first
+      // reply, so reasoning is dialled down here (see OPENAI_REASONING_EFFORT to override).
+      reasoningEffort: String(env.OPENAI_REASONING_EFFORT || 'minimal').trim(),
       env,
     };
   }
@@ -129,9 +132,11 @@ async function authKey(provider, opts) {
  * Returns the raw text of the model's reply.
  */
 export async function complete(provider, opts) {
-  const { signal } = opts;
+  const { signal, timeoutMs } = opts;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  // Per-task budgets let a slow gateway be abandoned in favour of the demo engine, so the
+  // classroom always reacts promptly instead of hanging.
+  const timer = setTimeout(() => controller.abort(), timeoutMs || TIMEOUT_MS);
   const onAbort = () => controller.abort();
   signal?.addEventListener('abort', onAbort, { once: true });
   try {
@@ -153,13 +158,18 @@ export async function complete(provider, opts) {
   }
 }
 
-function run(provider, { system, prompt, temperature = 0.7, maxTokens = 2000, json = true, signal }) {
+function run(provider, { system, prompt, temperature = 0.7, maxTokens = 2000, json = true, signal, extra }) {
+  // The managed gateway is a reasoning model: pass its effort knob unless the caller overrides.
+  const tuned =
+    provider.reasoningEffort && !extra?.reasoning_effort
+      ? { ...extra, reasoning_effort: provider.reasoningEffort }
+      : extra;
   return provider.kind === 'openai'
-    ? callOpenAi(provider, { system, prompt, temperature, maxTokens, json, signal })
-    : callGemini(provider, { system, prompt, temperature, maxTokens, json, signal });
+    ? callOpenAi(provider, { system, prompt, temperature, maxTokens, json, signal, extra: tuned })
+    : callGemini(provider, { system, prompt, temperature, maxTokens, json, signal, extra: tuned });
 }
 
-async function callOpenAi(provider, { system, prompt, temperature, maxTokens, json, signal }) {
+async function callOpenAi(provider, { system, prompt, temperature, maxTokens, json, signal, extra }) {
   const key = await authKey(provider);
   const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` };
   if (provider.managed) headers['X-Session-API-Key'] = provider.managed.sessionKey;
@@ -172,6 +182,7 @@ async function callOpenAi(provider, { system, prompt, temperature, maxTokens, js
   const url = `${base}/${completions ? 'completions' : 'chat/completions'}`;
   // Reasoning models spend part of the budget thinking before they write, so give them room.
   const budget = completions ? Math.max(maxTokens, 6000) : maxTokens;
+  // `extra` carries provider-specific knobs (e.g. reasoning_effort) from the task layer.
   const body = completions
     ? {
         model,
@@ -179,6 +190,7 @@ async function callOpenAi(provider, { system, prompt, temperature, maxTokens, js
         temperature,
         max_tokens: budget,
         ...(json ? { response_format: { type: 'json_object' } } : {}),
+        ...extra,
       }
     : {
         model,
@@ -189,6 +201,7 @@ async function callOpenAi(provider, { system, prompt, temperature, maxTokens, js
           { role: 'system', content: system },
           { role: 'user', content: prompt },
         ],
+        ...extra,
       };
 
   const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal });
@@ -203,6 +216,7 @@ async function callOpenAi(provider, { system, prompt, temperature, maxTokens, js
 }
 
 async function callGemini(provider, { system, prompt, temperature, maxTokens, json, signal }) {
+  // Gemini has no reasoning_effort knob; the parameter is simply ignored here.
   const model = String(provider.env.GEMINI_MODEL || 'gemini-2.5-flash').trim();
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
   const res = await fetch(url, {

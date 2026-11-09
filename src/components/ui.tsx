@@ -273,12 +273,14 @@ export function VoiceToggle({
 export function MicButton({
   supported,
   listening,
+  level = 0,
   onClick,
   disabled,
   className,
 }: {
   supported: boolean;
   listening: boolean;
+  level?: number;
   onClick: () => void;
   disabled?: boolean;
   className?: string;
@@ -304,6 +306,7 @@ export function MicButton({
             <Square className="h-2.5 w-2.5 fill-current" />
           </span>
           Stop
+          <MicLevelMeter level={level} listening={listening} className="ml-1" />
         </>
       ) : (
         <>
@@ -312,6 +315,32 @@ export function MicButton({
         </>
       )}
     </button>
+  );
+}
+
+/** A live input-level meter, so a silent microphone is visible instead of a mystery. */
+export function MicLevelMeter({ level, listening, className }: { level: number; listening: boolean; className?: string }) {
+  return (
+    <span
+      className={cn('inline-flex h-4 items-end gap-0.5', className)}
+      role="meter"
+      aria-label="Microphone input level"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(level * 100)}
+    >
+      {[0, 1, 2, 3, 4].map((i) => {
+        const threshold = (i + 1) / 5;
+        const on = listening && level >= threshold * 0.6;
+        return (
+          <span
+            key={i}
+            className={cn('w-1 rounded-full transition-all duration-100', on ? 'bg-wrong' : 'bg-line/25')}
+            style={{ height: `${5 + i * 2.5}px` }}
+          />
+        );
+      })}
+    </span>
   );
 }
 

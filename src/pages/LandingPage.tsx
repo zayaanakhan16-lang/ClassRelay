@@ -79,7 +79,7 @@ export function LandingPage({ demo }: { demo: boolean }) {
         <div className="relative mx-auto grid max-w-6xl gap-14 px-4 pb-20 pt-16 sm:px-6 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:pb-28 lg:pt-24">
           <motion.div initial="hidden" animate="show" transition={{ staggerChildren: 0.09 }}>
             <motion.div variants={fadeUp} className="mb-6">
-              <Logo withWordmark size={44} className="items-center" />
+              <Logo withWordmark size={44} tone="light" className="items-center" />
             </motion.div>
             <motion.p variants={fadeUp} className="eyebrow mb-4 text-pencil">
               CSC Winter Sparkathon 2026

@@ -234,6 +234,7 @@ export function SelfQuizPage() {
                   <MicButton
                     supported={dictation.supported}
                     listening={dictation.listening}
+                    level={dictation.level}
                     onClick={() => dictation.toggle(why, setWhy)}
                   />
                   {!dictation.supported && <span className="text-2xs text-muted">Voice is unavailable here — type instead</span>}

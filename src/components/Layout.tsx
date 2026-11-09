@@ -20,7 +20,7 @@ export function SiteHeader({ demo }: { demo: boolean }) {
     <header className="sticky top-0 z-40 border-b border-line/10 bg-paper/85 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
         <Link to="/" className="flex items-center gap-2.5" aria-label="ClassRelay home">
-          <Logo withWordmark size={32} />
+          <Logo withWordmark size={30} tone="dark" />
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex" aria-label="Main">
@@ -79,7 +79,7 @@ export function SiteFooter() {
     <footer className="border-t border-line/10 bg-paper/70">
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-10 sm:px-6 md:flex-row md:items-start md:justify-between">
         <div className="max-w-sm">
-          <Logo withWordmark size={30} />
+          <Logo withWordmark size={28} tone="dark" />
           <p className="mt-3 text-sm leading-relaxed text-muted">
             Every student has something to teach, and every student has something to learn.
           </p>

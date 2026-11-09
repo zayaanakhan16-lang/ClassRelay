@@ -44,6 +44,13 @@ interface SpeechRecognition extends EventTarget {
   onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
   onend: ((event: Event) => void) | null;
   onstart: ((event: Event) => void) | null;
+  // Microphone-activity events, used to prove the mic is really being heard.
+  onaudiostart: ((event: Event) => void) | null;
+  onsoundstart: ((event: Event) => void) | null;
+  onspeechstart: ((event: Event) => void) | null;
+  onaudioend: ((event: Event) => void) | null;
+  onsoundend: ((event: Event) => void) | null;
+  onspeechend: ((event: Event) => void) | null;
 }
 
 interface SpeechRecognitionConstructor {

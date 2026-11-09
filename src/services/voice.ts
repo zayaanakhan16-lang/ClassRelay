@@ -5,9 +5,18 @@
  * student talk, and synthesis lets the classmates talk back — so a question arrives the way
  * it would in a real room, not just as text.
  *
+ * Two things matter for it to feel like a real class:
+ *   1. Mika and Iya should sound like girls, Rafa and Dev like boys.
+ *   2. Each of the four should sound like a *different* person.
+ *
+ * Browsers expose voices asynchronously and their names are wildly inconsistent across
+ * platforms, so we do both: match the known female/male voice names first, and always apply
+ * a per-classmate pitch/rate so the gender and the difference are audible even when the
+ * system offers only one voice.
+ *
  * As with recognition, we never pretend. `speechSynthesis` is missing or silent in some
- * browsers and on some systems, so `voiceSupported` is checked before the UI offers sound,
- * and the transcript is always shown as well. Nothing here is required to use ClassRelay.
+ * browsers, so `voiceSupported` is checked before the UI offers sound, and the transcript is
+ * always shown as well. Nothing here is required to use ClassRelay.
  */
 
 import type { ClassmateId } from '@/types';
@@ -17,17 +26,61 @@ const synth: SpeechSynthesis | undefined =
 
 export const voiceSupported = Boolean(synth && typeof window.SpeechSynthesisUtterance === 'function');
 
-/** Per-classmate delivery, so the four voices stay distinguishable even on one engine. */
-export const VOICE_STYLE: Record<ClassmateId, { rate: number; pitch: number; hint: string[] }> = {
-  // Mika is younger and hesitant; a touch higher and slower.
-  mika: { rate: 0.98, pitch: 1.18, hint: ['Samantha', 'Zira', 'Google UK English Female', 'Female', 'Karen', 'Moira'] },
+export type VoiceGender = 'female' | 'male' | 'unknown';
+
+/**
+ * Per-classmate delivery. `gender` is what the voice *should* be; `pitch`/`rate` shape the
+ * voice so the four stay distinct even if the system only ships one. Mika and Iya are girls,
+ * Rafa and Dev are boys.
+ */
+export const VOICE_STYLE: Record<
+  ClassmateId,
+  { gender: VoiceGender; rate: number; pitch: number; hint: string[] }
+> = {
+  // Mika is younger and hesitant; higher and a little slower.
+  mika: { gender: 'female', rate: 0.97, pitch: 1.28, hint: ['Samantha', 'Zira', 'Google UK English Female', 'Karen', 'Moira', 'Tessa', 'Victoria'] },
   // Rafa is direct and a little blunt; lower and even.
-  rafa: { rate: 1.0, pitch: 0.82, hint: ['Daniel', 'Google UK English Male', 'Male', 'Alex', 'Rishi'] },
+  rafa: { gender: 'male', rate: 1.0, pitch: 0.78, hint: ['Daniel', 'Google UK English Male', 'Alex', 'Rishi', 'David', 'Mark'] },
   // Iya is bright and playful; quick and lively.
-  iya: { rate: 1.06, pitch: 1.1, hint: ['Tessa', 'Google US English', 'Victoria', 'Female'] },
+  iya: { gender: 'female', rate: 1.08, pitch: 1.12, hint: ['Tessa', 'Victoria', 'Fiona', 'Google US English', 'Serena', 'Zoe'] },
   // Dev thinks out loud; calm and measured.
-  dev: { rate: 0.94, pitch: 0.96, hint: ['Oliver', 'Google UK English Male', 'Male', 'Aaron'] },
+  dev: { gender: 'male', rate: 0.94, pitch: 0.9, hint: ['Oliver', 'Google UK English Male', 'Aaron', 'Arthur', 'George', 'Guy'] },
 };
+
+/** Names that identify a female voice, across macOS, Windows, Android, Chrome OS and Linux. */
+const FEMALE_NAMES = [
+  'female', 'woman', 'girl',
+  'samantha', 'karen', 'moira', 'tessa', 'victoria', 'fiona', 'serena', 'allison', 'ava',
+  'susan', 'zoe', 'nicky', 'kate', 'zira', 'hazel', 'heera', 'amelie', 'joanna', 'salli',
+  'kimberly', 'kendra', 'ivy', 'emma', 'amy', 'aria', 'jenny', 'michelle', 'libby', 'sonia',
+  'natasha', 'clara', 'emily', 'alice', 'federica', 'ioana', 'laura', 'catherine', 'marie',
+  'anna', 'helena', 'vicki', 'marlene', 'yelda', 'dalia', 'paulina', 'monica', 'elena',
+  'lucia', 'sara', 'silvia', 'katja', 'hedda', 'nora', 'lisa', 'satu', 'maja', 'shelley',
+  'grandma', 'flo', 'sandy', 'shelley', 'google us english', 'en-us-x-sfg',
+];
+
+/** Names that identify a male voice. */
+const MALE_NAMES = [
+  'male', 'man', 'boy',
+  'daniel', 'alex', 'fred', 'tom', 'oliver', 'aaron', 'arthur', 'rishi', 'matthew', 'joey',
+  'justin', 'brian', 'russell', 'eric', 'christopher', 'guy', 'liam', 'william', 'james',
+  'ryan', 'nathan', 'diego', 'jorge', 'thomas', 'rocko', 'reed', 'juan', 'carlos', 'felipe',
+  'luca', 'george', 'david', 'mark', 'richard', 'sean', 'paul', 'peter', 'stefan', 'magnus',
+  'henrik', 'olav', 'nils', 'mattias', 'yannick', 'hans', 'klaus', 'jorge', 'thiago', 'ralph',
+  'albert', 'bad news', 'bahh', 'bells', 'boing', 'bruce', 'bubbles', 'cellos', 'deranged',
+  'good news', 'hysterical', 'junior', 'organ', 'pipe organ', 'trinoids', 'whisper', 'zarvox',
+];
+
+const nameOf = (voice: SpeechSynthesisVoice) => ` ${voice.name.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()} `;
+
+/** Reads a voice's name (and lang) for a gender clue. Female is tested first: "female" contains "male". */
+export function classifyVoice(voice: SpeechSynthesisVoice): VoiceGender {
+  const name = nameOf(voice);
+  const hasWord = (word: string) => new RegExp(`\\b${word}\\b`).test(name);
+  if (FEMALE_NAMES.some(hasWord)) return 'female';
+  if (MALE_NAMES.some(hasWord)) return 'male';
+  return 'unknown';
+}
 
 let cachedVoices: SpeechSynthesisVoice[] = [];
 
@@ -40,29 +93,71 @@ export function englishVoices(): SpeechSynthesisVoice[] {
   return [...pool].sort((a, b) => Number(b.localService) - Number(a.localService));
 }
 
-/** Voices arrive asynchronously in most browsers; call back once they are ready. */
+/**
+ * Voices arrive asynchronously in most browsers (Chrome returns an empty list until
+ * `voiceschanged` fires). This resolves with the voice list as soon as one is available, or
+ * with an empty list after `timeout` so callers never hang.
+ */
+export function waitForVoices(timeout = 4000): Promise<SpeechSynthesisVoice[]> {
+  if (!synth) return Promise.resolve([]);
+  return new Promise((resolve) => {
+    const deadline = Date.now() + timeout;
+    let settled = false;
+    const finish = (voices: SpeechSynthesisVoice[]) => {
+      if (settled) return;
+      settled = true;
+      synth.removeEventListener?.('voiceschanged', onChanged);
+      resolve(voices);
+    };
+    const check = () => {
+      const voices = englishVoices();
+      if (voices.length) return finish(voices);
+      if (Date.now() >= deadline) return finish(voices);
+      setTimeout(check, 200);
+    };
+    const onChanged = () => {
+      const voices = englishVoices();
+      if (voices.length) finish(voices);
+    };
+    synth.addEventListener?.('voiceschanged', onChanged);
+    check();
+  });
+}
+
+/** Kept for callers that prefer the event style; now backed by the polling helper. */
 export function onVoicesReady(cb: (voices: SpeechSynthesisVoice[]) => void): () => void {
-  if (!synth) return () => {};
-  const handle = () => {
-    cachedVoices = englishVoices();
-    cb(cachedVoices);
+  let cancelled = false;
+  void waitForVoices().then((voices) => {
+    if (!cancelled) {
+      cachedVoices = voices;
+      cb(voices);
+    }
+  });
+  return () => {
+    cancelled = true;
   };
-  handle();
-  synth.addEventListener?.('voiceschanged', handle);
-  return () => synth.removeEventListener?.('voiceschanged', handle);
 }
 
 /**
- * Assigns a distinct voice to each classmate. Preference is given to a name hint, then the
- * pool is walked so two classmates never share a voice when there is a choice.
+ * Assigns a distinct voice to each classmate, matching the wanted gender.
+ *
+ * Priority for each classmate: a named hint of the right gender, then any voice of the right
+ * gender, then any unused voice. Two classmates never share a voice while there is a choice.
  */
-export function assignVoices(voices: SpeechSynthesisVoice[], ids: ClassmateId[]): Partial<Record<ClassmateId, SpeechSynthesisVoice>> {
+export function assignVoices(
+  voices: SpeechSynthesisVoice[],
+  ids: ClassmateId[],
+): Partial<Record<ClassmateId, SpeechSynthesisVoice>> {
   const used = new Set<string>();
   const out: Partial<Record<ClassmateId, SpeechSynthesisVoice>> = {};
   for (const id of ids) {
-    const hints = VOICE_STYLE[id].hint;
-    let pick = voices.find((v) => hints.some((h) => v.name.includes(h)) && !used.has(v.name));
-    if (!pick) pick = voices.find((v) => !used.has(v.name));
+    const { gender, hint } = VOICE_STYLE[id];
+    const free = (v: SpeechSynthesisVoice) => !used.has(v.name);
+    const pick =
+      voices.find((v) => free(v) && hint.some((h) => v.name.includes(h))) ??
+      voices.find((v) => free(v) && classifyVoice(v) === gender) ??
+      voices.find((v) => free(v) && classifyVoice(v) !== (gender === 'female' ? 'male' : 'female')) ??
+      voices.find(free);
     if (pick) {
       used.add(pick.name);
       out[id] = pick;
@@ -97,6 +192,7 @@ export function speak(text: string, options: SpeakOptions = {}): boolean {
   if (options.voice) utter.voice = options.voice;
   utter.rate = options.rate ?? 1;
   utter.pitch = options.pitch ?? 1;
+  utter.volume = 1;
   utter.lang = options.voice?.lang || 'en-US';
   utter.onstart = () => options.onStart?.();
   utter.onend = () => options.onEnd?.();
@@ -119,6 +215,23 @@ export function speak(text: string, options: SpeakOptions = {}): boolean {
   }
   synth.speak(utter);
   return true;
+}
+
+/**
+ * Primes the speech engine on the first user gesture. Chrome (especially on mobile) refuses
+ * to speak until the page has been interacted with; calling this from a click unlocks it so
+ * the very first classmate question is actually heard.
+ */
+export function unlockSpeech(): void {
+  if (!voiceSupported || !synth) return;
+  try {
+    const utter = new SpeechSynthesisUtterance(' ');
+    utter.volume = 0;
+    synth.speak(utter);
+    synth.cancel();
+  } catch {
+    /* ignore */
+  }
 }
 
 export function stopSpeaking(): void {
