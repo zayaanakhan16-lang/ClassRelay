@@ -53,7 +53,8 @@ npm start          # http://localhost:8787
 Everything works with no keys at all — the app falls back to a clearly-labelled built-in
 simulation, and every simulated response is marked as such in the UI.
 
-To use a real model, copy `.env.example` to `.env` and set **one** provider:
+To use a real model, copy `.env.example` to `.env` (or `.env.local`) and set **one**
+provider. Both files are read, and `.env.local` wins:
 
 - `GROQ_API_KEY` (recommended — fast, OpenAI-compatible)
 - `OPENAI_API_KEY` (+ `OPENAI_BASE_URL`, `OPENAI_MODEL`)
@@ -67,7 +68,7 @@ The repository is ready to deploy as-is:
 
 - `vercel.json` builds the client (`npm run build`) into `dist/` and serves it from the
   CDN.
-- `api/index.js` is a serverless function that wraps the same Express app
+- `api/[...path].js` is a serverless function that wraps the same Express app
   (`server/app.js`), so `/api/*` runs in the cloud.
 - Add your provider key (e.g. `GROQ_API_KEY`) in **Project → Settings → Environment
   Variables** so the deployed app runs in live mode.

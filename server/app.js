@@ -18,12 +18,16 @@ const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const DIST = path.join(ROOT, 'dist');
 
 // Minimal .env loader: no dependency, and it never overwrites a real environment value.
-// On a serverless host there is no .env file and this is a no-op.
-const envPath = path.join(ROOT, '.env');
-if (existsSync(envPath)) {
+// Both `.env` and `.env.local` are read; `.env.local` wins, which matches the convention
+// used by Vite/Next and the files listed in .gitignore. On a serverless host there is no
+// such file and this is a no-op.
+const realEnvKeys = new Set(Object.keys(process.env));
+for (const file of ['.env', '.env.local']) {
+  const envPath = path.join(ROOT, file);
+  if (!existsSync(envPath)) continue;
   for (const line of readFileSync(envPath, 'utf8').split(/\r?\n/)) {
     const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/i);
-    if (m && !line.trim().startsWith('#') && process.env[m[1]] === undefined) {
+    if (m && !line.trim().startsWith('#') && !realEnvKeys.has(m[1])) {
       let value = m[2];
       if (/^["']/.test(value)) value = value.replace(/^(["'])(.*)\1.*$/, '$2');
       else value = value.replace(/\s+#.*$/, '');

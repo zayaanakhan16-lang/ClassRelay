@@ -62,6 +62,16 @@ export function resolveProvider(env = process.env) {
   // Groq is OpenAI-compatible: it has its own base URL and speaks chat completions.
   if (wants('groq') && (groqKey || forced === 'groq')) {
     if (!groqKey) return null;
+    const model = String(env.GROQ_MODEL || 'openai/gpt-oss-120b').trim();
+    // Groq's reasoning models (gpt-oss, qwen3) spend part of the token budget thinking before
+    // they answer. A low effort keeps the class responsive and stops the budget being burned
+    // on reasoning, which otherwise shows up as empty replies and rate limits. Non-reasoning
+    // Groq models reject the parameter, so it is only sent when the model needs it.
+    const effort = String(env.GROQ_REASONING_EFFORT || '').trim().toLowerCase();
+    const reasoningEffort =
+      ['low', 'medium', 'high'].includes(effort) ? effort
+        : effort === 'off' ? ''
+          : /gpt-oss|qwen3/i.test(model) ? 'low' : '';
     return {
       name: 'groq',
       kind: 'openai',
@@ -69,7 +79,8 @@ export function resolveProvider(env = process.env) {
       key: groqKey,
       managed: null,
       base: String(env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1').replace(/\/+$/, ''),
-      model: String(env.GROQ_MODEL || 'llama-3.3-70b-versatile').trim(),
+      model,
+      reasoningEffort,
       classTurnTimeoutMs,
       env,
     };
@@ -157,6 +168,12 @@ export async function complete(provider, opts) {
       // A managed key may have expired mid-session; refresh once and retry.
       if (err.kind === 'auth' && provider.managed && !opts.__retried) {
         managedKeys.delete(provider.managed.refreshUrl);
+        return complete(provider, { ...opts, __retried: true });
+      }
+      // Free tiers throttle bursts. One short, patient retry usually clears a 429, and
+      // anything longer is left to the caller so the classroom never stalls.
+      if (err.kind === 'rate-limit' && !opts.__retried) {
+        await new Promise((r) => setTimeout(r, 900));
         return complete(provider, { ...opts, __retried: true });
       }
       throw err;
