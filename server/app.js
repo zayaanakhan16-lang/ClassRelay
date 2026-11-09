@@ -75,6 +75,8 @@ app.get('/api/health', (_req, res) => {
     provider: provider ? provider.name || provider.kind : null,
     // Never expose the key itself, only whether one is configured.
     hasKey: Boolean(provider),
+    // Which commit this server was built from, so a stale deploy is obvious at a glance.
+    commit: (process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 7) || null,
   });
 });
 
